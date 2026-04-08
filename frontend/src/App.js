@@ -156,97 +156,353 @@ const LandingPage = () => {
   }, [user, navigate]);
 
   const handleLogin = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    const redirectUrl = window.location.origin + '/dashboard';
+    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  };
+
+  const handleStartFree = () => {
     const redirectUrl = window.location.origin + '/dashboard';
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] relative overflow-hidden">
-      <div 
-        className="absolute inset-0 opacity-10 pointer-events-none"
-        style={{
-          backgroundImage: "url('https://static.prod-images.emergentagent.com/jobs/83ac8970-8288-4a16-a96f-226e4aa4d5c2/images/df24f437da402e58e5db1103ba19b774810d17fa998d387adcdd4bd82225d90b.png')",
-          backgroundSize: "cover",
-          backgroundPosition: "center"
-        }}
-      />
-
-      <header className="relative z-10 px-6 py-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7F77DD] to-[#534AB7] flex items-center justify-center">
-              <Check className="w-6 h-6 text-white" strokeWidth={3} />
+    <div className="min-h-screen bg-white">
+      {/* NAVBAR */}
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-[#F4F4F5]">
+        <div className="max-w-6xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#7F77DD] to-[#534AB7] flex items-center justify-center">
+                <Check className="w-5 h-5 text-white" strokeWidth={3} />
+              </div>
+              <span className="font-bold text-xl text-[#1E1B4B]" style={{ fontFamily: 'Outfit, sans-serif' }}>FocusNote</span>
             </div>
-            <span className="font-bold text-xl text-[#1E1B4B]" style={{ fontFamily: 'Outfit, sans-serif' }}>FocusNote</span>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleLogin}
+                data-testid="login-btn-header"
+                className="px-4 py-2 text-[#64748B] hover:text-[#1E1B4B] font-medium transition-colors"
+              >
+                Log in
+              </button>
+              <button
+                onClick={handleStartFree}
+                data-testid="start-free-nav"
+                className="px-5 py-2.5 bg-[#7F77DD] hover:bg-[#534AB7] text-white font-medium rounded-xl transition-all duration-300 hover:-translate-y-0.5"
+              >
+                Start free →
+              </button>
+            </div>
           </div>
-          <button
-            onClick={handleLogin}
-            data-testid="login-btn-header"
-            className="px-5 py-2.5 bg-[#7F77DD] hover:bg-[#534AB7] text-white font-medium rounded-xl transition-all duration-300 hover:-translate-y-0.5 shadow-soft"
-          >
-            Sign In
-          </button>
         </div>
-      </header>
+      </nav>
 
-      <main className="relative z-10 px-6 pt-16 pb-24">
+      {/* HERO SECTION */}
+      <section className="px-6 pt-20 pb-24">
         <div className="max-w-4xl mx-auto text-center">
           <h1 
             className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#1E1B4B] mb-6 leading-tight"
             style={{ fontFamily: 'Outfit, sans-serif' }}
           >
-            Task management that{" "}
-            <span className="text-[#7F77DD]">gets you</span>
+            Your brain works differently.
+            <br />
+            <span className="text-[#7F77DD]">Your app should too.</span>
           </h1>
-          <p className="text-lg text-[#64748B] mb-12 max-w-2xl mx-auto leading-relaxed">
-            A calm, AI-powered task manager designed for minds that work differently. 
-            Just type what you need to do — we'll organize the rest.
+          <p className="text-xl text-[#64748B] mb-10 max-w-2xl mx-auto leading-relaxed">
+            FocusNote turns your messy thoughts into 3 clear tasks. Nothing more.
           </p>
 
-          <div className="max-w-2xl mx-auto mb-12">
-            <div className="bg-white rounded-3xl shadow-soft p-2 border border-[#EBE9FE]">
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Sparkles className="w-6 h-6 text-[#7F77DD]" />
-                <span className="text-[#94A3B8] text-lg">Try: "call dentist next Tuesday"</span>
-              </div>
-            </div>
-          </div>
-
           <button
-            onClick={handleLogin}
-            data-testid="get-started-btn"
-            className="px-8 py-4 bg-[#7F77DD] hover:bg-[#534AB7] text-white font-semibold text-lg rounded-2xl transition-all duration-300 hover:-translate-y-1 shadow-lg shadow-[#7F77DD]/25"
+            onClick={handleStartFree}
+            data-testid="hero-cta"
+            className="px-8 py-4 bg-[#7F77DD] hover:bg-[#534AB7] text-white font-semibold text-lg rounded-2xl transition-all duration-300 hover:-translate-y-1 shadow-lg shadow-[#7F77DD]/25 mb-4"
           >
-            Get Started — It's Free
+            Start free — no credit card needed →
           </button>
+          
+          <p className="text-sm text-[#94A3B8]">
+            Join 500+ people with ADHD who finally feel organized
+          </p>
 
-          <div className="grid md:grid-cols-3 gap-8 mt-24">
-            <FeatureCard 
-              icon={<Sparkles className="w-7 h-7 text-[#7F77DD]" />}
-              title="AI-Powered Input"
-              description="Just type naturally. Our AI understands dates, priorities, and context automatically."
-            />
-            <FeatureCard 
-              icon={<svg className="w-7 h-7 text-[#7F77DD]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>}
-              title="Brain Dump Safe Space"
-              description="A judgment-free zone to unload your thoughts without any pressure to organize."
-            />
-            <FeatureCard 
-              icon={<svg className="w-7 h-7 text-[#7F77DD]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707" /></svg>}
-              title="Calm by Design"
-              description="No anxiety-inducing notifications, no overwhelming dashboards. Just peace."
-            />
+          {/* Animated Demo */}
+          <div className="mt-16 max-w-2xl mx-auto">
+            <TypingDemo />
           </div>
         </div>
-      </main>
+      </section>
 
-      <footer className="relative z-10 py-8 border-t border-[#EBE9FE]">
-        <p className="text-center text-[#94A3B8] text-sm">Made with care for beautiful minds</p>
+      {/* PROBLEM SECTION */}
+      <section className="px-6 py-24 bg-[#FAFAFA]">
+        <div className="max-w-5xl mx-auto">
+          <h2 
+            className="text-3xl sm:text-4xl font-bold text-[#1E1B4B] text-center mb-16"
+            style={{ fontFamily: 'Outfit, sans-serif' }}
+          >
+            Sound familiar?
+          </h2>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <ProblemCard text="Notion overwhelms me before I even start" />
+            <ProblemCard text="My todo app makes me feel guilty for missing tasks" />
+            <ProblemCard text="I write things down and still forget them" />
+          </div>
+        </div>
+      </section>
+
+      {/* SOLUTION SECTION */}
+      <section className="px-6 py-24">
+        <div className="max-w-5xl mx-auto">
+          <h2 
+            className="text-3xl sm:text-4xl font-bold text-[#1E1B4B] text-center mb-6"
+            style={{ fontFamily: 'Outfit, sans-serif' }}
+          >
+            So we built something different
+          </h2>
+          <p className="text-lg text-[#64748B] text-center mb-16 max-w-2xl mx-auto">
+            Just 3 tasks. That's it. Because done is better than perfect.
+          </p>
+
+          {/* Dashboard Mockup */}
+          <DashboardMockup />
+        </div>
+      </section>
+
+      {/* PRICING SECTION */}
+      <section className="px-6 py-24 bg-[#FAFAFA]">
+        <div className="max-w-4xl mx-auto">
+          <h2 
+            className="text-3xl sm:text-4xl font-bold text-[#1E1B4B] text-center mb-6"
+            style={{ fontFamily: 'Outfit, sans-serif' }}
+          >
+            Simple pricing
+          </h2>
+          <p className="text-lg text-[#64748B] text-center mb-12">
+            Start free. Upgrade when you're ready.
+          </p>
+
+          {/* Pricing Cards */}
+          <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+            {/* Free Plan */}
+            <div className="bg-white rounded-3xl p-8 border border-[#E5E7EB]">
+              <h3 className="text-xl font-semibold text-[#1E1B4B] mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                Free
+              </h3>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-[#1E1B4B]">$0</span>
+                <span className="text-[#64748B]">/month</span>
+              </div>
+              <ul className="space-y-4 mb-8">
+                <LandingPricingFeature text="Up to 10 tasks" />
+                <LandingPricingFeature text="Brain dump (3 days)" />
+                <LandingPricingFeature text="Basic AI parsing" />
+              </ul>
+              <button
+                onClick={handleStartFree}
+                className="w-full py-3 bg-[#F4F4F5] hover:bg-[#EBE9FE] text-[#1E1B4B] font-medium rounded-xl transition-colors"
+              >
+                Get started free
+              </button>
+            </div>
+
+            {/* Pro Plan */}
+            <div className="bg-white rounded-3xl p-8 border-2 border-[#534AB7] relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="px-4 py-1 bg-[#534AB7] text-white text-sm font-medium rounded-full">
+                  Most popular
+                </span>
+              </div>
+              <h3 className="text-xl font-semibold text-[#1E1B4B] mb-2 mt-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                Pro
+              </h3>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-[#1E1B4B]">$3</span>
+                <span className="text-[#64748B]">/month</span>
+              </div>
+              <ul className="space-y-4 mb-8">
+                <LandingPricingFeature text="Unlimited tasks" highlight />
+                <LandingPricingFeature text="Focus Mode" highlight />
+                <LandingPricingFeature text="Full brain dump history" highlight />
+                <LandingPricingFeature text="Priority AI (faster)" highlight />
+              </ul>
+              <button
+                onClick={handleStartFree}
+                className="w-full py-3 bg-[#7F77DD] hover:bg-[#534AB7] text-white font-semibold rounded-xl transition-all duration-300 hover:-translate-y-0.5"
+              >
+                Start with Pro →
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="px-6 py-12 border-t border-[#F4F4F5]">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#7F77DD] to-[#534AB7] flex items-center justify-center">
+                <Check className="w-4 h-4 text-white" strokeWidth={3} />
+              </div>
+              <span className="font-semibold text-[#1E1B4B]" style={{ fontFamily: 'Outfit, sans-serif' }}>FocusNote</span>
+            </div>
+            <div className="flex items-center gap-6 text-sm text-[#94A3B8]">
+              <span>Made for ADHD brains</span>
+              <span>·</span>
+              <a href="#" className="hover:text-[#7F77DD] transition-colors">Privacy</a>
+              <span>·</span>
+              <a href="#" className="hover:text-[#7F77DD] transition-colors">Terms</a>
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
   );
 };
+
+// ============== TYPING DEMO ANIMATION ==============
+const TypingDemo = () => {
+  const [phase, setPhase] = useState('typing'); // 'typing', 'processing', 'result'
+  const [typedText, setTypedText] = useState('');
+  const fullText = 'call dentist next tuesday';
+  
+  useEffect(() => {
+    let timeout;
+    
+    if (phase === 'typing') {
+      if (typedText.length < fullText.length) {
+        timeout = setTimeout(() => {
+          setTypedText(fullText.slice(0, typedText.length + 1));
+        }, 80);
+      } else {
+        timeout = setTimeout(() => {
+          setPhase('processing');
+        }, 800);
+      }
+    } else if (phase === 'processing') {
+      timeout = setTimeout(() => {
+        setPhase('result');
+      }, 1200);
+    } else if (phase === 'result') {
+      timeout = setTimeout(() => {
+        setPhase('typing');
+        setTypedText('');
+      }, 4000);
+    }
+    
+    return () => clearTimeout(timeout);
+  }, [phase, typedText]);
+
+  return (
+    <div className="bg-[#FAFAFA] rounded-3xl p-8 border border-[#EBE9FE]">
+      {/* Input Phase */}
+      <div className={`transition-all duration-500 ${phase === 'result' ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'}`}>
+        <div className="bg-white rounded-2xl p-4 border border-[#E5E7EB] mb-4">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-5 h-5 text-[#7F77DD]" />
+            <span className="text-[#1E1B4B] text-lg">
+              {typedText}
+              <span className="animate-pulse text-[#7F77DD]">|</span>
+            </span>
+          </div>
+        </div>
+        
+        {phase === 'processing' && (
+          <div className="flex items-center justify-center gap-2 text-[#7F77DD]">
+            <div className="w-2 h-2 bg-[#7F77DD] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-2 h-2 bg-[#7F77DD] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-2 h-2 bg-[#7F77DD] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          </div>
+        )}
+      </div>
+      
+      {/* Result Phase */}
+      <div className={`transition-all duration-500 ${phase === 'result' ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}`}>
+        <div className="bg-white rounded-2xl p-5 border border-[#EBE9FE] shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="w-8 h-8 rounded-xl bg-[#EBE9FE] flex items-center justify-center text-lg">
+              🦷
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-[#1E1B4B]">Call dentist</p>
+              <p className="text-sm text-[#64748B]">Tuesday, Apr 15</p>
+            </div>
+            <div className="w-6 h-6 rounded-lg border-2 border-[#D1D5DB]"></div>
+          </div>
+        </div>
+        <p className="text-center text-sm text-[#94A3B8] mt-4">
+          ✨ Parsed automatically by AI
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ============== PROBLEM CARD ==============
+const ProblemCard = ({ text }) => (
+  <div className="bg-white rounded-2xl p-8 border border-[#E5E7EB] text-center">
+    <div className="w-12 h-12 mx-auto mb-4 bg-[#FFF7ED] rounded-2xl flex items-center justify-center">
+      <span className="text-2xl">😩</span>
+    </div>
+    <p className="text-[#1E1B4B] font-medium leading-relaxed">"{text}"</p>
+  </div>
+);
+
+// ============== DASHBOARD MOCKUP ==============
+const DashboardMockup = () => {
+  const tasks = [
+    { emoji: '🦷', title: 'Call dentist', time: 'Today, 3pm', priority: 'high' },
+    { emoji: '📧', title: 'Reply to Sarah', time: 'Today', priority: 'medium' },
+    { emoji: '🛒', title: 'Buy groceries', time: 'Tomorrow', priority: 'low' },
+  ];
+
+  return (
+    <div className="bg-white rounded-3xl shadow-2xl shadow-[#7F77DD]/10 border border-[#EBE9FE] overflow-hidden max-w-lg mx-auto">
+      {/* Mock Header */}
+      <div className="px-6 py-4 border-b border-[#F4F4F5] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#7F77DD] to-[#534AB7]"></div>
+          <span className="font-semibold text-sm text-[#1E1B4B]">FocusNote</span>
+        </div>
+        <div className="flex items-center gap-1.5 px-2 py-1 bg-[#FFF7ED] rounded-lg">
+          <Flame className="w-3 h-3 text-[#F97316]" />
+          <span className="text-xs font-medium text-[#1E1B4B]">5 days</span>
+        </div>
+      </div>
+      
+      {/* Mock Content */}
+      <div className="p-6">
+        <p className="text-sm text-[#64748B] mb-4">Today</p>
+        <div className="space-y-3">
+          {tasks.map((task, i) => (
+            <div 
+              key={i}
+              className="flex items-center gap-3 p-3 bg-[#FAFAFA] rounded-xl"
+              style={{ animationDelay: `${i * 100}ms` }}
+            >
+              <div className="w-5 h-5 rounded-md border-2 border-[#D1D5DB]"></div>
+              <span className="text-lg">{task.emoji}</span>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-[#1E1B4B]">{task.title}</p>
+              </div>
+              <span className="text-xs text-[#94A3B8]">{task.time}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-center text-xs text-[#94A3B8] mt-6">
+          Just 3 tasks. Nothing more.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ============== LANDING PRICING FEATURE ==============
+const LandingPricingFeature = ({ text, highlight }) => (
+  <li className="flex items-center gap-3">
+    <Check className={`w-5 h-5 ${highlight ? 'text-[#7F77DD]' : 'text-[#10B981]'}`} strokeWidth={2.5} />
+    <span className="text-[#1E1B4B]">{text}</span>
+  </li>
+);
 
 const FeatureCard = ({ icon, title, description }) => (
   <div className="bg-white rounded-2xl p-8 shadow-soft">
