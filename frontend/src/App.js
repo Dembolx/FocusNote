@@ -267,9 +267,11 @@ const Dashboard = () => {
   const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [showFocusMode, setShowFocusMode] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [brainDumpExpanded, setBrainDumpExpanded] = useState(false);
   const [brainDumpContent, setBrainDumpContent] = useState("");
+  const [lastSavedTime, setLastSavedTime] = useState(null);
   const [completingTaskId, setCompletingTaskId] = useState(null);
   
   const autoSaveTimer = useRef(null);
@@ -333,7 +335,7 @@ const Dashboard = () => {
     fetchDashboard();
   }, [fetchDashboard]);
 
-  // Auto-save brain dump
+  // Auto-save brain dump silently
   useEffect(() => {
     if (!brainDumpContent.trim()) return;
     
@@ -344,6 +346,7 @@ const Dashboard = () => {
     autoSaveTimer.current = setTimeout(async () => {
       try {
         await axios.put(`${API}/brain-dumps/autosave`, { content: brainDumpContent });
+        setLastSavedTime(new Date());
       } catch (error) {
         console.error("Auto-save error:", error);
       }
@@ -427,6 +430,10 @@ const Dashboard = () => {
   }
 
   const isPro = dashboardData.user?.plan === "pro";
+  
+  // Only show streak warning if streak >= 1 AND no task completed today
+  const showStreakWarning = (dashboardData.streak?.streak || 0) >= 1 && 
+                            !dashboardData.streak?.completed_today;
 
   return (
     <div className="min-h-screen bg-white">
@@ -440,24 +447,34 @@ const Dashboard = () => {
         />
       )}
 
+      {/* Upgrade Modal for Focus Mode */}
+      {showUpgradeModal && (
+        <UpgradeModal 
+          onClose={() => setShowUpgradeModal(false)}
+          onUpgrade={handleUpgrade}
+        />
+      )}
+
       {/* Top Bar */}
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-[#F4F4F5]">
         <div className="max-w-3xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            {/* Logo */}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#7F77DD] to-[#534AB7] flex items-center justify-center">
-                <Check className="w-5 h-5 text-white" strokeWidth={3} />
+            {/* Logo + Streak */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#7F77DD] to-[#534AB7] flex items-center justify-center">
+                  <Check className="w-5 h-5 text-white" strokeWidth={3} />
+                </div>
+                <span className="font-bold text-lg text-[#1E1B4B]" style={{ fontFamily: 'Outfit, sans-serif' }}>FocusNote</span>
               </div>
-              <span className="font-bold text-lg text-[#1E1B4B]" style={{ fontFamily: 'Outfit, sans-serif' }}>FocusNote</span>
-            </div>
-
-            {/* Streak Counter */}
-            <div className="flex items-center gap-2 px-4 py-2 bg-[#FFF7ED] rounded-xl">
-              <Flame className="w-5 h-5 text-[#F97316]" />
-              <span className="font-semibold text-[#1E1B4B]">
-                {dashboardData.streak?.streak || 0} days
-              </span>
+              
+              {/* Streak Counter - right next to logo */}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FFF7ED] rounded-lg" data-testid="streak-counter">
+                <Flame className="w-4 h-4 text-[#F97316]" />
+                <span className="font-semibold text-sm text-[#1E1B4B]">
+                  {dashboardData.streak?.streak || 0} days
+                </span>
+              </div>
             </div>
 
             {/* User Avatar */}
@@ -496,8 +513,8 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <main className="max-w-3xl mx-auto px-6 py-10">
-        {/* Streak Warning */}
-        {dashboardData.streak?.needs_task_today && !dashboardData.streak?.completed_today && (
+        {/* Streak Warning - only show if streak >= 1 AND no task completed today */}
+        {showStreakWarning && (
           <div className="mb-8 p-4 bg-[#FFF7ED] rounded-2xl border border-[#FFEDD5]">
             <p className="text-[#9A3412] text-sm font-medium flex items-center gap-2">
               <Flame className="w-4 h-4" />
@@ -561,9 +578,9 @@ const Dashboard = () => {
               </button>
             ) : (
               <button
-                onClick={handleUpgrade}
+                onClick={() => setShowUpgradeModal(true)}
                 data-testid="focus-mode-locked"
-                className="px-4 py-2 bg-[#F4F4F5] text-[#94A3B8] text-sm font-medium rounded-xl flex items-center gap-2"
+                className="px-4 py-2 bg-[#F4F4F5] text-[#94A3B8] text-sm font-medium rounded-xl flex items-center gap-2 hover:bg-[#EBE9FE] transition-colors"
               >
                 <Lock className="w-4 h-4" />
                 Focus Mode
@@ -655,9 +672,11 @@ const Dashboard = () => {
                   className="w-full h-48 p-6 bg-[#FAFAFA] rounded-2xl outline-none resize-none text-[#1E1B4B] placeholder:text-[#94A3B8] leading-relaxed border-2 border-transparent focus:border-[#EBE9FE] transition-colors"
                   style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
                 />
-                <div className="absolute bottom-4 right-4 text-xs text-[#94A3B8]">
-                  Auto-saves
-                </div>
+                {lastSavedTime && (
+                  <div className="absolute bottom-4 right-4 text-xs text-[#C4C4C4]">
+                    saved {lastSavedTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                  </div>
+                )}
               </div>
               
               {!isPro && dashboardData.brain_dumps?.length > 0 && (
@@ -811,6 +830,61 @@ const EmptyState = ({ title, description }) => (
     <p className="text-[#64748B] text-sm">{description}</p>
   </div>
 );
+
+// ============== UPGRADE MODAL ==============
+const UpgradeModal = ({ onClose, onUpgrade }) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div className="relative bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl animate-fade-in-up">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-[#94A3B8] hover:text-[#1E1B4B] transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-[#EBE9FE] rounded-2xl flex items-center justify-center">
+            <Lock className="w-8 h-8 text-[#7F77DD]" />
+          </div>
+          
+          <h3 
+            className="text-xl font-bold text-[#1E1B4B] mb-2"
+            style={{ fontFamily: 'Outfit, sans-serif' }}
+          >
+            Focus Mode is a Pro feature
+          </h3>
+          
+          <p className="text-[#64748B] mb-6">
+            Upgrade to unlock distraction-free focus and unlimited tasks.
+          </p>
+          
+          <button
+            onClick={onUpgrade}
+            data-testid="upgrade-modal-btn"
+            className="w-full py-3 bg-[#7F77DD] hover:bg-[#534AB7] text-white font-semibold rounded-xl transition-all duration-300"
+          >
+            Upgrade for $9.99/month →
+          </button>
+          
+          <button
+            onClick={onClose}
+            className="w-full py-3 mt-2 text-[#64748B] font-medium hover:text-[#1E1B4B] transition-colors"
+          >
+            Maybe later
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ============== PROFILE PAGE ==============
 const Profile = () => {
