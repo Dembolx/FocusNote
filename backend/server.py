@@ -213,7 +213,7 @@ async def exchange_session(request: SessionRequest, response: Response):
     )
     
     # Update streak
-    await update_user_streak(user_id)
+    await update_user_streak(user_id, completed_task=False)
     
     # Get updated user
     user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
@@ -237,37 +237,74 @@ async def logout(response: Response, request: Request):
 
 # ============== STREAK HELPER ==============
 
-async def update_user_streak(user_id: str):
-    """Update user streak based on last active date"""
+async def update_user_streak(user_id: str, completed_task: bool = False):
+    """Update user streak based on task completion"""
     user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     if not user:
         return
     
     today = datetime.now(timezone.utc).date().isoformat()
     last_active = user.get("last_active_date")
+    last_completed = user.get("last_task_completed_date")
     streak = user.get("streak_count", 0)
     
-    if last_active:
-        last_date = datetime.fromisoformat(last_active).date()
-        today_date = datetime.now(timezone.utc).date()
-        diff = (today_date - last_date).days
-        
-        if diff == 0:
-            # Same day, no change
-            pass
-        elif diff == 1:
-            # Consecutive day, increase streak
-            streak += 1
+    # Streak only increments when completing a task
+    if completed_task:
+        if last_completed:
+            last_completed_date = datetime.fromisoformat(last_completed).date()
+            today_date = datetime.now(timezone.utc).date()
+            diff = (today_date - last_completed_date).days
+            
+            if diff == 0:
+                # Already completed task today, no streak change
+                pass
+            elif diff == 1:
+                # Consecutive day with task completion
+                streak += 1
+            else:
+                # Streak broken, start fresh
+                streak = 1
         else:
-            # Streak broken, reset to 1
+            # First task ever
             streak = 1
+        
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "streak_count": streak, 
+                "last_active_date": today,
+                "last_task_completed_date": today
+            }}
+        )
     else:
-        streak = 1
+        # Just update last active (login/visit)
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"last_active_date": today}}
+        )
     
-    await db.users.update_one(
-        {"user_id": user_id},
-        {"$set": {"streak_count": streak, "last_active_date": today}}
-    )
+    return streak
+
+async def check_streak_status(user_id: str) -> dict:
+    """Check if user needs to complete a task today to keep streak"""
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not user:
+        return {"streak": 0, "needs_task_today": True, "completed_today": False}
+    
+    today = datetime.now(timezone.utc).date().isoformat()
+    last_completed = user.get("last_task_completed_date")
+    streak = user.get("streak_count", 0)
+    
+    completed_today = last_completed == today if last_completed else False
+    
+    # Check if streak is at risk
+    needs_task_today = not completed_today and streak > 0
+    
+    return {
+        "streak": streak,
+        "needs_task_today": needs_task_today,
+        "completed_today": completed_today
+    }
 
 # ============== AI TASK PARSER ==============
 
@@ -389,6 +426,12 @@ async def update_task(task_id: str, update: TaskUpdate, user: dict = Depends(get
     
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
     
+    # Track if this is a new completion
+    is_new_completion = (
+        update_data.get("status") == "done" and 
+        task.get("status") != "done"
+    )
+    
     if update_data.get("status") == "done":
         update_data["completed_at"] = datetime.now(timezone.utc).isoformat()
     
@@ -397,6 +440,10 @@ async def update_task(task_id: str, update: TaskUpdate, user: dict = Depends(get
             {"task_id": task_id},
             {"$set": update_data}
         )
+    
+    # Update streak if task was just completed
+    if is_new_completion:
+        await update_user_streak(user["user_id"], completed_task=True)
     
     updated = await db.tasks.find_one({"task_id": task_id}, {"_id": 0})
     return updated
@@ -412,6 +459,120 @@ async def delete_task(task_id: str, user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Task not found")
     
     return {"message": "Task deleted"}
+
+# ============== DASHBOARD DATA ==============
+
+@api_router.get("/dashboard")
+async def get_dashboard_data(user: dict = Depends(get_current_user)):
+    """Get all dashboard data in one request"""
+    user_id = user["user_id"]
+    today = datetime.now(timezone.utc).date()
+    today_str = today.isoformat()
+    tomorrow = today + timedelta(days=1)
+    
+    # Get streak status
+    streak_status = await check_streak_status(user_id)
+    
+    # Get all active tasks
+    all_tasks = await db.tasks.find(
+        {"user_id": user_id, "status": "active"},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    # Separate today's tasks and upcoming
+    today_tasks = []
+    upcoming_tasks = []
+    no_date_tasks = []
+    
+    for task in all_tasks:
+        if task.get("due_date"):
+            try:
+                due = datetime.fromisoformat(task["due_date"].replace('Z', '+00:00')).date()
+                if due <= today:
+                    today_tasks.append(task)
+                else:
+                    upcoming_tasks.append(task)
+            except:
+                no_date_tasks.append(task)
+        else:
+            no_date_tasks.append(task)
+    
+    # Sort by priority (high > medium > low)
+    priority_order = {"high": 0, "medium": 1, "low": 2}
+    today_tasks.sort(key=lambda x: priority_order.get(x.get("priority", "medium"), 1))
+    upcoming_tasks.sort(key=lambda x: x.get("due_date", "9999"))
+    
+    # Add tasks without dates to today (they're immediate)
+    today_tasks = today_tasks + no_date_tasks
+    today_tasks.sort(key=lambda x: priority_order.get(x.get("priority", "medium"), 1))
+    
+    # Get most urgent task for Focus Mode
+    most_urgent = today_tasks[0] if today_tasks else (upcoming_tasks[0] if upcoming_tasks else None)
+    
+    # Count active tasks for free plan limit
+    active_count = len(all_tasks)
+    
+    # Get brain dumps (last 3 days for free, all for pro)
+    if user.get("plan") == "pro":
+        dumps = await db.brain_dumps.find(
+            {"user_id": user_id},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(50)
+    else:
+        three_days_ago = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
+        dumps = await db.brain_dumps.find(
+            {"user_id": user_id, "created_at": {"$gte": three_days_ago}},
+            {"_id": 0}
+        ).sort("created_at", -1).to_list(50)
+    
+    return {
+        "user": user,
+        "streak": streak_status,
+        "today_tasks": today_tasks[:3],  # Max 3 for Today's Focus
+        "today_overflow": len(today_tasks) - 3 if len(today_tasks) > 3 else 0,
+        "all_today_tasks": today_tasks,
+        "upcoming_tasks": upcoming_tasks[:5],
+        "most_urgent_task": most_urgent,
+        "active_task_count": active_count,
+        "is_at_limit": active_count >= 10 and user.get("plan") == "free",
+        "brain_dumps": dumps
+    }
+
+@api_router.put("/brain-dumps/autosave")
+async def autosave_brain_dump(dump: BrainDumpCreate, user: dict = Depends(get_current_user)):
+    """Auto-save brain dump - updates or creates today's dump"""
+    today = datetime.now(timezone.utc).date().isoformat()
+    
+    # Check for existing dump today
+    existing = await db.brain_dumps.find_one(
+        {
+            "user_id": user["user_id"],
+            "created_at": {"$regex": f"^{today}"}
+        },
+        {"_id": 0}
+    )
+    
+    if existing:
+        # Update existing
+        await db.brain_dumps.update_one(
+            {"dump_id": existing["dump_id"]},
+            {"$set": {"content": dump.content, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        updated = await db.brain_dumps.find_one({"dump_id": existing["dump_id"]}, {"_id": 0})
+        return updated
+    else:
+        # Create new
+        dump_id = f"dump_{uuid.uuid4().hex[:12]}"
+        dump_doc = {
+            "dump_id": dump_id,
+            "user_id": user["user_id"],
+            "content": dump.content,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.brain_dumps.insert_one(dump_doc)
+        if "_id" in dump_doc:
+            del dump_doc["_id"]
+        return dump_doc
 
 # ============== BRAIN DUMPS ==============
 
