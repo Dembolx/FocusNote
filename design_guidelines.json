@@ -1,0 +1,98 @@
+{
+  "theme": "Light",
+  "archetype": "3 (Pastel & Soft)",
+  "typography": {
+    "heading_font": "Outfit",
+    "body_font": "Inter",
+    "weights": {
+      "headings": "font-semibold to font-bold",
+      "body": "font-normal",
+      "labels": "font-medium"
+    },
+    "hierarchy_rules": "Generous line-height (leading-relaxed for body, leading-tight for headings). Tracking tight on large headings. H1 max text-5xl.",
+    "banned_fonts": ["Space Grotesk"]
+  },
+  "colors": {
+    "background": {
+      "base": "#FAFAFA",
+      "surface": "#FFFFFF",
+      "subtle": "#F4F4F5"
+    },
+    "primary": {
+      "main": "#7F77DD",
+      "hover": "#534AB7",
+      "light": "#EBE9FE"
+    },
+    "text": {
+      "primary": "#1E1B4B",
+      "secondary": "#64748B",
+      "placeholder": "#94A3B8"
+    },
+    "status": {
+      "success": "#A7F3D0",
+      "success_text": "#065F46",
+      "warning": "#FDE68A",
+      "warning_text": "#92400E",
+      "error": "#FFEDD5",
+      "error_text": "#9A3412"
+    },
+    "banned_colors": [
+      "#7351B7",
+      "#1B93A4",
+      "Pure Red",
+      "#FF0000"
+    ]
+  },
+  "layout_and_spacing": {
+    "spacing_scale": "p-4, p-6, p-8, p-12. Generous Spacing Philosophy. Default container padding p-8.",
+    "grid_system": "Single column or asymmetric 2-column. Avoid dense 'control room' grids. Use extreme negative space to reduce cognitive load.",
+    "radius": "rounded-2xl for main cards, rounded-xl for buttons, rounded-3xl for the AI input.",
+    "shadows": "Very soft ambient shadows. shadow-[0_8px_30px_rgb(0,0,0,0.04)] to create a soft floating effect."
+  },
+  "components_strategy": {
+    "ai_input_parser": "Massive, inviting text input at top. Neumorphic tactile feel or very soft shadow with 1px border. No clunky submit buttons; 'Press Enter to capture'.",
+    "task_list": "Chunked list. Cards for tasks with left-aligned text, right-aligned subtle tags for priority/due date. Muted colors for secondary tasks. Progress disclosure.",
+    "brain_dump": "A totally borderless or extremely faint bordered textarea that feels like an endless piece of paper. Safe space.",
+    "streak_tracking": "Visual representations (e.g., a growing soft SVG plant or subtle abstract shape) rather than anxiety-inducing large numbers. No red text.",
+    "navigation": "Top or side navigation with 'Crystal Glassmorphism' (backdrop-blur-xl bg-white/70) so it doesn't feel heavy."
+  },
+  "interactions_and_motion": {
+    "hover_states": "Buttons lift slightly (-translate-y-0.5) with a deeper shadow. Soft background color transitions.",
+    "focus_states": "High contrast ring focus:ring-2 focus:ring-[#7F77DD] focus:ring-offset-2. Crucial for accessibility.",
+    "transitions": "transition-all duration-300 ease-out.",
+    "animations": "Staggered fade-up for tasks entering the list. No looping or hyperactive animations."
+  },
+  "assets_and_media": {
+    "icons_library": "lucide-react",
+    "images": [
+      {
+        "category": "empty_state",
+        "url": "https://static.prod-images.emergentagent.com/jobs/83ac8970-8288-4a16-a96f-226e4aa4d5c2/images/1b660733c874d176b4e6fc5084b8ebbffc824c6a24741fd0f451234c904cdca6.png",
+        "description": "3D floating geometric shapes in pastel lavender. Use for Brain Dump empty state or empty task list.",
+        "alt_text": "Calming floating geometric shapes"
+      },
+      {
+        "category": "hero_background",
+        "url": "https://static.prod-images.emergentagent.com/jobs/83ac8970-8288-4a16-a96f-226e4aa4d5c2/images/df24f437da402e58e5db1103ba19b774810d17fa998d387adcdd4bd82225d90b.png",
+        "description": "Abstract flowing silk texture in pale lavender. Use as an absolute positioned, low opacity (10-20%) background layer behind the main dashboard or auth screen.",
+        "alt_text": "Soft lavender silk texture"
+      },
+      {
+        "category": "profile_header",
+        "url": "https://images.unsplash.com/photo-1773113513343-ddae50a4efdc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwzfHxjYWxtaW5nJTIwbmF0dXJlJTIwbWluaW1hbGlzdHxlbnwwfHx8fDE3NzU2MzczNTh8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Calm ocean horizon at twilight. Use as the banner image for the user profile section to induce calm.",
+        "alt_text": "Calm ocean horizon"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Strictly adhere to the color palette. No red dots or aggressive notification colors. Use the provided mint green (#A7F3D0) or soft orange for statuses.",
+    "Use 'Outfit' for all headings and 'Inter' for body text. Install Outfit via Google Fonts.",
+    "Ensure all interactive elements have a 'data-testid' attribute (e.g., data-testid='ai-task-input').",
+    "The AI Task Input should be the most prominent element on the dashboard. Use generous padding (e.g., p-6 or p-8 inside the input wrapper).",
+    "Implement streaks with visual progress (like a soft progress bar or icon fills) rather than massive 'You have 5 days left!' text.",
+    "For the Stripe Pro Plan section, use a 'Tracing Beam' or subtle shimmering border to denote the premium nature without being loud.",
+    "Do NOT use Space Grotesk font. Do NOT use #7351B7.",
+    "Keep the Brain Dump section distinct from the Task List—perhaps a separate tab or a dedicated wide column with no visible borders, feeling like a raw canvas."
+  ]
+}
