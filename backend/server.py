@@ -523,7 +523,11 @@ async def get_checkout_status(session_id: str, user: dict = Depends(get_current_
     api_key = os.environ.get("STRIPE_API_KEY")
     stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
     
-    status = await stripe_checkout.get_checkout_status(session_id)
+    try:
+        status = await stripe_checkout.get_checkout_status(session_id)
+    except Exception as e:
+        logger.error(f"Checkout status error: {e}")
+        raise HTTPException(status_code=404, detail="Checkout session not found or expired")
     
     # Update transaction and user plan if paid
     if status.payment_status == "paid":
