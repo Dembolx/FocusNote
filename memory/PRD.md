@@ -54,10 +54,14 @@ Build a full-stack web app called FocusNote — a minimal AI-powered task manage
 - [x] No Focus Mode - shows locked state
 - [x] Brain dump shows only last 3 days
 
-### Payments
-- [x] Stripe checkout integration
-- [x] Pro plan subscription flow ($9.99/month)
+### Payments (Jan 2026 - Updated)
+- [x] Stripe checkout integration ($3/month Pro plan)
+- [x] POST /api/stripe/create-checkout-session
+- [x] POST /api/stripe/webhook (handles checkout.session.completed, customer.subscription.deleted, invoice.payment_failed)
+- [x] GET /api/stripe/portal (Customer Portal for managing/canceling)
+- [x] /pricing page with Free vs Pro comparison
 - [x] Payment status polling
+- [x] Success toast: "Welcome to Pro! You're unstoppable. 🚀"
 
 ## Database Schema (MongoDB Collections)
 - `users` - user profiles, plan, streak
