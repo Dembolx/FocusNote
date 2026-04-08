@@ -629,10 +629,10 @@ async def delete_brain_dump(dump_id: str, user: dict = Depends(get_current_user)
 
 # ============== STRIPE SUBSCRIPTION ==============
 
-PRO_PLAN_PRICE = 9.99  # Monthly price in USD
+PRO_PLAN_PRICE = 3.00  # Monthly price in USD
 
-@api_router.post("/subscriptions/checkout")
-async def create_checkout_session(checkout: CheckoutRequest, request: Request, user: dict = Depends(get_current_user)):
+@api_router.post("/stripe/create-checkout-session")
+async def create_stripe_checkout(checkout: CheckoutRequest, request: Request, user: dict = Depends(get_current_user)):
     """Create Stripe checkout session for Pro plan"""
     from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
     
@@ -641,12 +641,15 @@ async def create_checkout_session(checkout: CheckoutRequest, request: Request, u
         raise HTTPException(status_code=500, detail="Stripe not configured")
     
     host_url = str(request.base_url).rstrip("/")
-    webhook_url = f"{host_url}/api/webhook/stripe"
+    webhook_url = f"{host_url}/api/stripe/webhook"
     
     stripe_checkout = StripeCheckout(api_key=api_key, webhook_url=webhook_url)
     
-    success_url = f"{checkout.origin_url}/dashboard?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{checkout.origin_url}/dashboard"
+    success_url = f"{checkout.origin_url}/dashboard?payment=success&session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{checkout.origin_url}/pricing"
+    
+    # Get or create Stripe customer ID
+    user_doc = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
     
     checkout_request = CheckoutSessionRequest(
         amount=PRO_PLAN_PRICE,
@@ -655,6 +658,7 @@ async def create_checkout_session(checkout: CheckoutRequest, request: Request, u
         cancel_url=cancel_url,
         metadata={
             "user_id": user["user_id"],
+            "user_email": user.get("email", ""),
             "plan": "pro"
         }
     )
@@ -675,6 +679,156 @@ async def create_checkout_session(checkout: CheckoutRequest, request: Request, u
     await db.payment_transactions.insert_one(transaction_doc)
     
     return {"url": session.url, "session_id": session.session_id}
+
+# Keep old endpoint for backward compatibility
+@api_router.post("/subscriptions/checkout")
+async def create_checkout_session(checkout: CheckoutRequest, request: Request, user: dict = Depends(get_current_user)):
+    """Create Stripe checkout session for Pro plan (legacy endpoint)"""
+    return await create_stripe_checkout(checkout, request, user)
+
+@api_router.post("/stripe/webhook")
+async def stripe_webhook_handler(request: Request):
+    """Handle Stripe webhooks for subscription events"""
+    from emergentintegrations.payments.stripe.checkout import StripeCheckout
+    
+    api_key = os.environ.get("STRIPE_API_KEY")
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
+    
+    body = await request.body()
+    signature = request.headers.get("Stripe-Signature")
+    
+    try:
+        webhook_response = await stripe_checkout.handle_webhook(body, signature)
+        event_type = webhook_response.event_type
+        logger.info(f"Stripe webhook received: {event_type}")
+        
+        user_id = webhook_response.metadata.get("user_id") if webhook_response.metadata else None
+        
+        # Handle checkout.session.completed
+        if event_type == "checkout.session.completed" or webhook_response.payment_status == "paid":
+            if user_id:
+                # Update user plan to pro
+                await db.users.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"plan": "pro"}}
+                )
+                
+                # Update payment transaction
+                await db.payment_transactions.update_one(
+                    {"session_id": webhook_response.session_id},
+                    {"$set": {"payment_status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()}}
+                )
+                
+                # Create or update subscription record
+                existing_sub = await db.subscriptions.find_one({"user_id": user_id}, {"_id": 0})
+                if existing_sub:
+                    await db.subscriptions.update_one(
+                        {"user_id": user_id},
+                        {"$set": {
+                            "status": "active",
+                            "stripe_session_id": webhook_response.session_id,
+                            "current_period_end": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }}
+                    )
+                else:
+                    subscription_doc = {
+                        "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
+                        "user_id": user_id,
+                        "stripe_session_id": webhook_response.session_id,
+                        "status": "active",
+                        "plan": "pro",
+                        "current_period_end": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+                        "created_at": datetime.now(timezone.utc).isoformat()
+                    }
+                    await db.subscriptions.insert_one(subscription_doc)
+                
+                logger.info(f"User {user_id} upgraded to Pro")
+        
+        # Handle customer.subscription.deleted
+        elif event_type == "customer.subscription.deleted":
+            if user_id:
+                await db.users.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"plan": "free"}}
+                )
+                await db.subscriptions.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"status": "canceled", "canceled_at": datetime.now(timezone.utc).isoformat()}}
+                )
+                logger.info(f"User {user_id} subscription canceled")
+        
+        # Handle invoice.payment_failed
+        elif event_type == "invoice.payment_failed":
+            if user_id:
+                await db.subscriptions.update_one(
+                    {"user_id": user_id},
+                    {"$set": {"status": "past_due", "updated_at": datetime.now(timezone.utc).isoformat()}}
+                )
+                logger.info(f"User {user_id} payment failed - subscription past_due")
+        
+        return {"status": "ok", "event": event_type}
+        
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        # Return 200 to prevent Stripe from retrying
+        return {"status": "error", "message": str(e)}
+
+# Keep old webhook endpoint for backward compatibility
+@api_router.post("/webhook/stripe")
+async def stripe_webhook_legacy(request: Request):
+    """Handle Stripe webhooks (legacy endpoint)"""
+    return await stripe_webhook_handler(request)
+
+@api_router.get("/stripe/portal")
+async def create_customer_portal(request: Request, user: dict = Depends(get_current_user)):
+    """Create Stripe Customer Portal session for managing subscription"""
+    import stripe
+    
+    api_key = os.environ.get("STRIPE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    
+    stripe.api_key = api_key
+    
+    # Get user's subscription to find customer ID
+    subscription = await db.subscriptions.find_one(
+        {"user_id": user["user_id"], "status": {"$in": ["active", "past_due"]}},
+        {"_id": 0}
+    )
+    
+    if not subscription:
+        raise HTTPException(status_code=400, detail="No active subscription found")
+    
+    # Get stripe customer ID from the checkout session
+    stripe_session_id = subscription.get("stripe_session_id")
+    if not stripe_session_id:
+        raise HTTPException(status_code=400, detail="No Stripe session found")
+    
+    try:
+        # Retrieve the checkout session to get customer ID
+        checkout_session = stripe.checkout.Session.retrieve(stripe_session_id)
+        customer_id = checkout_session.customer
+        
+        if not customer_id:
+            raise HTTPException(status_code=400, detail="No customer found for this subscription")
+        
+        # Get the origin URL from referer or use default
+        origin = request.headers.get("referer", "").split("/api")[0]
+        if not origin:
+            origin = str(request.base_url).rstrip("/").replace("/api", "")
+        
+        # Create portal session
+        portal_session = stripe.billing_portal.Session.create(
+            customer=customer_id,
+            return_url=f"{origin}/dashboard"
+        )
+        
+        return {"url": portal_session.url}
+        
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe portal error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create customer portal session")
 
 @api_router.get("/subscriptions/status/{session_id}")
 async def get_checkout_status(session_id: str, user: dict = Depends(get_current_user)):
@@ -712,16 +866,18 @@ async def get_checkout_status(session_id: str, user: dict = Depends(get_current_
             )
             
             # Create subscription record
-            subscription_doc = {
-                "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
-                "user_id": user["user_id"],
-                "stripe_session_id": session_id,
-                "status": "active",
-                "plan": "pro",
-                "current_period_end": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
-                "created_at": datetime.now(timezone.utc).isoformat()
-            }
-            await db.subscriptions.insert_one(subscription_doc)
+            existing_sub = await db.subscriptions.find_one({"user_id": user["user_id"]}, {"_id": 0})
+            if not existing_sub:
+                subscription_doc = {
+                    "subscription_id": f"sub_{uuid.uuid4().hex[:12]}",
+                    "user_id": user["user_id"],
+                    "stripe_session_id": session_id,
+                    "status": "active",
+                    "plan": "pro",
+                    "current_period_end": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat()
+                }
+                await db.subscriptions.insert_one(subscription_doc)
     
     return {
         "status": status.status,
@@ -730,43 +886,11 @@ async def get_checkout_status(session_id: str, user: dict = Depends(get_current_
         "currency": status.currency
     }
 
-@api_router.post("/webhook/stripe")
-async def stripe_webhook(request: Request):
-    """Handle Stripe webhooks"""
-    from emergentintegrations.payments.stripe.checkout import StripeCheckout
-    
-    api_key = os.environ.get("STRIPE_API_KEY")
-    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
-    
-    body = await request.body()
-    signature = request.headers.get("Stripe-Signature")
-    
-    try:
-        webhook_response = await stripe_checkout.handle_webhook(body, signature)
-        logger.info(f"Stripe webhook: {webhook_response.event_type}")
-        
-        if webhook_response.payment_status == "paid":
-            user_id = webhook_response.metadata.get("user_id")
-            if user_id:
-                await db.users.update_one(
-                    {"user_id": user_id},
-                    {"$set": {"plan": "pro"}}
-                )
-                await db.payment_transactions.update_one(
-                    {"session_id": webhook_response.session_id},
-                    {"$set": {"payment_status": "paid"}}
-                )
-        
-        return {"status": "ok"}
-    except Exception as e:
-        logger.error(f"Webhook error: {e}")
-        return {"status": "error", "message": str(e)}
-
 @api_router.get("/subscriptions/current")
 async def get_current_subscription(user: dict = Depends(get_current_user)):
     """Get current user's subscription"""
     subscription = await db.subscriptions.find_one(
-        {"user_id": user["user_id"], "status": "active"},
+        {"user_id": user["user_id"], "status": {"$in": ["active", "past_due"]}},
         {"_id": 0}
     )
     return subscription

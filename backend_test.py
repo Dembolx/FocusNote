@@ -253,11 +253,11 @@ print('Test user created successfully');
             print("❌ No session token, skipping subscription tests")
             return
         
-        # Test checkout creation
+        # Test new Stripe checkout creation endpoint
         checkout_data = self.run_test(
-            "Create Checkout Session",
+            "Create Stripe Checkout Session",
             "POST",
-            "subscriptions/checkout",
+            "stripe/create-checkout-session",
             200,
             {"origin_url": "https://focus-minimal-app.preview.emergentagent.com"}
         )
@@ -274,6 +274,23 @@ print('Test user created successfully');
                     f"subscriptions/status/{session_id}",
                     200
                 )
+        
+        # Test legacy checkout endpoint for backward compatibility
+        legacy_checkout = self.run_test(
+            "Create Legacy Checkout Session",
+            "POST",
+            "subscriptions/checkout",
+            200,
+            {"origin_url": "https://focus-minimal-app.preview.emergentagent.com"}
+        )
+        
+        # Test Stripe Customer Portal (should fail for free users without subscription)
+        portal_result = self.run_test(
+            "Stripe Customer Portal (No Subscription)",
+            "GET",
+            "stripe/portal",
+            400  # Should return 400 for users without active subscription
+        )
         
         # Test current subscription
         self.run_test("Get Current Subscription", "GET", "subscriptions/current", 200)

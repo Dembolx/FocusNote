@@ -136,6 +136,7 @@ const AppRouter = () => {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -276,12 +277,16 @@ const Dashboard = () => {
   
   const autoSaveTimer = useRef(null);
 
-  // Check for Stripe session_id
+  // Check for Stripe payment success
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const sessionId = params.get('session_id');
+    const paymentStatus = params.get('payment');
     
-    if (sessionId) {
+    if (paymentStatus === 'success' && sessionId) {
+      pollPaymentStatus(sessionId);
+      navigate('/dashboard', { replace: true });
+    } else if (sessionId) {
       pollPaymentStatus(sessionId);
       navigate('/dashboard', { replace: true });
     }
@@ -297,7 +302,7 @@ const Dashboard = () => {
       const response = await axios.get(`${API}/subscriptions/status/${sessionId}`);
       
       if (response.data.payment_status === 'paid') {
-        toast.success("Welcome to Pro! Your account has been upgraded.");
+        toast.success("Welcome to Pro! You're unstoppable. 🚀");
         fetchDashboard();
         return;
       } else if (response.data.status === 'expired') {
@@ -411,7 +416,7 @@ const Dashboard = () => {
 
   const handleUpgrade = async () => {
     try {
-      const response = await axios.post(`${API}/subscriptions/checkout`, {
+      const response = await axios.post(`${API}/stripe/create-checkout-session`, {
         origin_url: window.location.origin
       });
       window.location.href = response.data.url;
@@ -833,6 +838,8 @@ const EmptyState = ({ title, description }) => (
 
 // ============== UPGRADE MODAL ==============
 const UpgradeModal = ({ onClose, onUpgrade }) => {
+  const navigate = useNavigate();
+  
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -863,15 +870,15 @@ const UpgradeModal = ({ onClose, onUpgrade }) => {
           </h3>
           
           <p className="text-[#64748B] mb-6">
-            Upgrade to unlock distraction-free focus and unlimited tasks.
+            Upgrade for $3/month to unlock distraction-free focus and unlimited tasks.
           </p>
           
           <button
-            onClick={onUpgrade}
+            onClick={() => { onClose(); navigate("/pricing"); }}
             data-testid="upgrade-modal-btn"
             className="w-full py-3 bg-[#7F77DD] hover:bg-[#534AB7] text-white font-semibold rounded-xl transition-all duration-300"
           >
-            Upgrade for $9.99/month →
+            Upgrade for $3/month →
           </button>
           
           <button
@@ -909,14 +916,16 @@ const Profile = () => {
   };
 
   const handleUpgrade = async () => {
+    navigate("/pricing");
+  };
+
+  const handleManageSubscription = async () => {
     try {
-      const response = await axios.post(`${API}/subscriptions/checkout`, {
-        origin_url: window.location.origin
-      });
+      const response = await axios.get(`${API}/stripe/portal`);
       window.location.href = response.data.url;
     } catch (error) {
-      console.error("Checkout error:", error);
-      toast.error("Failed to start checkout");
+      console.error("Portal error:", error);
+      toast.error("Failed to open subscription portal");
     }
   };
 
@@ -991,7 +1000,7 @@ const Profile = () => {
           </div>
 
           {/* Upgrade */}
-          {profile?.plan === "free" && (
+          {profile?.plan === "free" ? (
             <div className="bg-gradient-to-r from-[#EBE9FE] to-[#F4F4F5] rounded-2xl p-5 border border-[#7F77DD]/20">
               <h3 className="font-semibold text-[#1E1B4B] mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Upgrade to Pro
@@ -1002,11 +1011,27 @@ const Profile = () => {
                 <li>• Full brain dump history</li>
               </ul>
               <button
-                onClick={handleUpgrade}
+                onClick={() => navigate("/pricing")}
                 data-testid="profile-upgrade-btn"
                 className="w-full py-3 bg-[#7F77DD] hover:bg-[#534AB7] text-white font-medium rounded-xl transition-all duration-300"
               >
-                Upgrade for $9.99/month
+                View pricing →
+              </button>
+            </div>
+          ) : (
+            <div className="bg-[#F4F4F5] rounded-2xl p-5">
+              <h3 className="font-semibold text-[#1E1B4B] mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                Pro Subscription
+              </h3>
+              <p className="text-[#64748B] text-sm mb-4">
+                Manage your billing and subscription settings.
+              </p>
+              <button
+                onClick={handleManageSubscription}
+                data-testid="manage-subscription-btn"
+                className="w-full py-3 bg-white border border-[#E5E7EB] hover:border-[#7F77DD] text-[#1E1B4B] font-medium rounded-xl transition-all duration-300"
+              >
+                Manage subscription
               </button>
             </div>
           )}
@@ -1023,6 +1048,200 @@ const Profile = () => {
     </div>
   );
 };
+
+// ============== PRICING PAGE ==============
+const PricingPage = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+
+  const handleUpgrade = async () => {
+    if (!user) {
+      // Redirect to login first
+      const redirectUrl = window.location.origin + '/pricing';
+      window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await axios.post(`${API}/stripe/create-checkout-session`, {
+        origin_url: window.location.origin
+      });
+      window.location.href = response.data.url;
+    } catch (error) {
+      console.error("Checkout error:", error);
+      toast.error("Failed to start checkout. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const isPro = user?.plan === "pro";
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-[#F4F4F5]">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <button 
+              onClick={() => navigate(user ? "/dashboard" : "/")}
+              className="flex items-center gap-2"
+            >
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#7F77DD] to-[#534AB7] flex items-center justify-center">
+                <Check className="w-5 h-5 text-white" strokeWidth={3} />
+              </div>
+              <span className="font-bold text-lg text-[#1E1B4B]" style={{ fontFamily: 'Outfit, sans-serif' }}>FocusNote</span>
+            </button>
+            
+            {user ? (
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="text-[#64748B] hover:text-[#1E1B4B] transition-colors"
+              >
+                Back to dashboard
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  const redirectUrl = window.location.origin + '/dashboard';
+                  window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+                }}
+                className="px-4 py-2 text-[#7F77DD] font-medium hover:text-[#534AB7] transition-colors"
+              >
+                Sign in
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Pricing Content */}
+      <main className="max-w-4xl mx-auto px-6 py-16">
+        <div className="text-center mb-12">
+          <h1 
+            className="text-3xl sm:text-4xl font-bold text-[#1E1B4B] mb-4"
+            style={{ fontFamily: 'Outfit, sans-serif' }}
+          >
+            Simple, calm pricing
+          </h1>
+          <p className="text-[#64748B] text-lg">
+            Choose the plan that works for you. No hidden fees.
+          </p>
+        </div>
+
+        {/* Pricing Cards */}
+        <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          {/* Free Plan */}
+          <div className="bg-white rounded-3xl p-8 border border-[#E5E7EB]" data-testid="free-plan-card">
+            <h3 
+              className="text-xl font-semibold text-[#1E1B4B] mb-2"
+              style={{ fontFamily: 'Outfit, sans-serif' }}
+            >
+              Free
+            </h3>
+            <div className="mb-6">
+              <span className="text-4xl font-bold text-[#1E1B4B]">$0</span>
+              <span className="text-[#64748B]">/month</span>
+            </div>
+            
+            <ul className="space-y-4 mb-8">
+              <PricingFeature text="Up to 10 tasks" />
+              <PricingFeature text="Brain dump (3 days)" />
+              <PricingFeature text="Basic AI parsing" />
+              <PricingFeature text="Streak tracking" disabled />
+              <PricingFeature text="Focus Mode" disabled />
+            </ul>
+
+            {(!user || user?.plan === "free") && !isPro ? (
+              <button
+                disabled
+                className="w-full py-3 bg-[#F4F4F5] text-[#94A3B8] font-medium rounded-xl cursor-not-allowed"
+              >
+                Current plan
+              </button>
+            ) : (
+              <button
+                disabled
+                className="w-full py-3 bg-[#F4F4F5] text-[#94A3B8] font-medium rounded-xl cursor-not-allowed"
+              >
+                Downgrade
+              </button>
+            )}
+          </div>
+
+          {/* Pro Plan */}
+          <div 
+            className="bg-white rounded-3xl p-8 border-2 border-[#534AB7] relative"
+            data-testid="pro-plan-card"
+          >
+            {/* Most Popular Badge */}
+            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+              <span className="px-4 py-1 bg-[#534AB7] text-white text-sm font-medium rounded-full">
+                Most popular
+              </span>
+            </div>
+
+            <h3 
+              className="text-xl font-semibold text-[#1E1B4B] mb-2 mt-2"
+              style={{ fontFamily: 'Outfit, sans-serif' }}
+            >
+              Pro
+            </h3>
+            <div className="mb-6">
+              <span className="text-4xl font-bold text-[#1E1B4B]">$3</span>
+              <span className="text-[#64748B]">/month</span>
+            </div>
+            
+            <ul className="space-y-4 mb-8">
+              <PricingFeature text="Unlimited tasks" highlight />
+              <PricingFeature text="Focus Mode" highlight />
+              <PricingFeature text="Full brain dump history" highlight />
+              <PricingFeature text="Priority AI (faster)" highlight />
+              <PricingFeature text="Gentle reminders" highlight />
+            </ul>
+
+            {isPro ? (
+              <button
+                onClick={() => navigate("/profile")}
+                className="w-full py-3 bg-[#F4F4F5] text-[#1E1B4B] font-medium rounded-xl hover:bg-[#EBE9FE] transition-colors"
+              >
+                Manage subscription
+              </button>
+            ) : (
+              <button
+                onClick={handleUpgrade}
+                disabled={loading}
+                data-testid="upgrade-now-btn"
+                className="w-full py-3 bg-[#7F77DD] hover:bg-[#534AB7] text-white font-semibold rounded-xl transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-50"
+              >
+                {loading ? "Loading..." : "Upgrade now →"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* FAQ or Trust */}
+        <div className="text-center mt-12">
+          <p className="text-[#94A3B8] text-sm">
+            Cancel anytime. No questions asked.
+          </p>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+const PricingFeature = ({ text, disabled, highlight }) => (
+  <li className="flex items-center gap-3">
+    {disabled ? (
+      <X className="w-5 h-5 text-[#D1D5DB]" />
+    ) : (
+      <Check className={`w-5 h-5 ${highlight ? 'text-[#7F77DD]' : 'text-[#10B981]'}`} strokeWidth={2.5} />
+    )}
+    <span className={disabled ? 'text-[#94A3B8]' : 'text-[#1E1B4B]'}>{text}</span>
+  </li>
+);
 
 // ============== MAIN APP ==============
 function App() {
