@@ -31,24 +31,33 @@ Build a full-stack web app called FocusNote — a minimal AI-powered task manage
 - [x] Protected routes
 
 ### Core Features
-- [x] AI task parser - natural language to structured task
+- [x] AI task parser - natural language to structured task (GPT-4o-mini)
 - [x] Tasks CRUD with priority, due date, type, emoji
-- [x] Task completion/done tracking
-- [x] Brain Dumps - freeform textarea section
+- [x] Task completion/done tracking with animations
+- [x] Brain Dumps - freeform textarea section with auto-save (3 sec)
 - [x] User profile with stats
-- [x] Streak tracking
+- [x] Streak tracking (increments on task completion)
+
+### Enhanced Dashboard (Jan 2026)
+- [x] ADHD-optimized layout with generous whitespace
+- [x] Top bar: Logo + Streak counter (🔥 X days) + User avatar
+- [x] Large centered input with lavender focus border
+- [x] Today's Focus: Max 3 tasks, priority sorted, "+ X more" overflow
+- [x] Focus Mode: Full-screen overlay (Pro only, locked for free)
+- [x] Upcoming section: Next 5 tasks grouped by date
+- [x] Brain Dump: Collapsible, auto-saves every 3 seconds
+- [x] Streak warning: "Keep your streak alive!" if no task today
+- [x] Task completion: Green checkmark animation (dopamine hit)
+
+### Free Plan Limits
+- [x] Max 10 active tasks - upgrade banner at limit
+- [x] No Focus Mode - shows locked state
+- [x] Brain dump shows only last 3 days
 
 ### Payments
 - [x] Stripe checkout integration
 - [x] Pro plan subscription flow ($9.99/month)
 - [x] Payment status polling
-
-### Design
-- [x] ADHD-friendly calming design
-- [x] Lavender accent colors (#7F77DD, #534AB7)
-- [x] Inter + Outfit fonts
-- [x] No red notifications/anxiety triggers
-- [x] Responsive design
 
 ## Database Schema (MongoDB Collections)
 - `users` - user profiles, plan, streak
